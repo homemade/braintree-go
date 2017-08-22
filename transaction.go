@@ -1,6 +1,7 @@
 package braintree
 
 import (
+	"encoding/xml"
 	"time"
 
 	"github.com/lionelbarrow/braintree-go/customfields"
@@ -146,10 +147,46 @@ type Transactions struct {
 }
 
 type TransactionOptions struct {
-	SubmitForSettlement              bool `xml:"submit-for-settlement,omitempty"`
-	StoreInVault                     bool `xml:"store-in-vault,omitempty"`
-	AddBillingAddressToPaymentMethod bool `xml:"add-billing-address-to-payment-method,omitempty"`
-	StoreShippingAddressInVault      bool `xml:"store-shipping-address-in-vault,omitempty"`
+	SubmitForSettlement              bool                             `xml:"submit-for-settlement,omitempty"`
+	StoreInVault                     bool                             `xml:"store-in-vault,omitempty"`
+	AddBillingAddressToPaymentMethod bool                             `xml:"add-billing-address-to-payment-method,omitempty"`
+	StoreShippingAddressInVault      bool                             `xml:"store-shipping-address-in-vault,omitempty"`
+	TransactionOptionsPaypalRequest  *TransactionOptionsPaypalRequest `xml:"paypal,omitempty"`
+}
+
+type TransactionOptionsPaypalRequest struct {
+	CustomField       string               `xml:"custom-field,omitempty"`
+	PayeeEmail        string               `xml:"payee-email,omitempty"`
+	Description       string               `xml:"description,omitempty"`
+	SupplementaryData supplementaryDataMap `xml:"supplementary-data,omitempty"`
+}
+
+type supplementaryDataMap map[string]string
+
+func (s supplementaryDataMap) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+
+	tokens := []xml.Token{start}
+
+	for key, value := range s {
+		t := xml.StartElement{Name: xml.Name{Space: "", Local: key}}
+		tokens = append(tokens, t, xml.CharData(value), xml.EndElement{Name: t.Name})
+	}
+
+	tokens = append(tokens, xml.EndElement{Name: start.Name})
+
+	for _, t := range tokens {
+		err := e.EncodeToken(t)
+		if err != nil {
+			return err
+		}
+	}
+	// flush to ensure tokens are written
+	err := e.Flush()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 type TransactionSearchResult struct {
